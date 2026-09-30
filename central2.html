@@ -96,6 +96,24 @@
         // Misma lista de unidades que usa Usuarios.
         const UNIDADES = ['B-1', 'Z-1', 'BT-1', 'B-2', 'R-2', 'BX-2', 'B-3', 'BX-3', 'G-3', 'RX-2', 'UT-2', 'LT-1', 'K-1'];
 
+        // Mismo color por clave que usa Central 1 (getCodeColor en central.html), para
+        // reconocer cada tarjeta de un vistazo cuando hay varias emergencias activas
+        // a la vez. Los servicios (6-x) y el acuartelamiento se resuelven aparte, como
+        // ya se hacía, porque no son una clave 10-X.
+        const CODE_COLORS = {
+            "ACUARTELAMIENTO": "var(--c-blue)",
+            "10-0": "var(--c-red)", "10-1": "var(--c-red)",
+            "10-2": "var(--c-cyan)",
+            "10-3-1": "var(--c-orange)", "10-3-2": "var(--c-purple)",
+            "10-3": "var(--c-green)", "10-4": "var(--c-green)",
+            "10-5": "var(--c-orange)", "10-6": "var(--c-orange)",
+            "10-9-1": "var(--c-red)",
+            "10-12": "var(--c-red)", "10-14": "var(--c-red)",
+        };
+        function getCodeColor(code) {
+            return CODE_COLORS[(code || "").trim()] || "var(--c-gray)";
+        }
+
         // Códigos de llegada de otras instituciones. Se guardan como texto simple
         // junto al despacho; el nombre completo es solo para mostrar en el botón.
         const INSTITUCIONES = [
@@ -124,16 +142,27 @@
         let estadoFlota = {};
         const chipsFlota = document.getElementById('chips-flota');
 
+        // Color de la emergencia activa en la que está cada unidad ahora mismo (si
+        // está en alguna). Mismo criterio de color que usan las tarjetas más abajo
+        // (isServicio → naranjo, acuartelamiento → azul, el resto → rojo), para que
+        // el chip de la unidad se vea igual que la tarjeta a la que pertenece.
+        let coloresUnidadActiva = {};
+
         function pintarChipsFlota() {
             chipsFlota.innerHTML = UNIDADES.map(u => {
                 const fuera = !!estadoFlota[u];
+                const colorEmergencia = !fuera ? coloresUnidadActiva[u] : null;
+                const enEmergencia = !!colorEmergencia;
+                const color = fuera ? 'var(--c-red)' : (colorEmergencia || 'var(--border-color)');
+                const bg = fuera ? 'var(--c-red)' : (colorEmergencia || 'var(--bg-dark)');
+                const etiqueta = fuera ? ' · FUERA DE SERVICIO' : (enEmergencia ? ' · EN EMERGENCIA' : '');
                 return `
                     <button class="chip-unidad" data-unidad="${u}" style="
                         padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.85rem;
-                        cursor: pointer; border: 1.5px solid ${fuera ? 'var(--c-red)' : 'var(--border-color)'};
-                        background: ${fuera ? 'var(--c-red)' : 'var(--bg-dark)'};
-                        color: ${fuera ? 'white' : 'var(--text-light)'};
-                    ">${u}${fuera ? ' · FUERA DE SERVICIO' : ''}</button>
+                        cursor: pointer; border: 1.5px solid ${color};
+                        background: ${bg};
+                        color: ${(fuera || enEmergencia) ? 'white' : 'var(--text-light)'};
+                    ">${u}${etiqueta}</button>
                 `;
             }).join('');
 
@@ -200,7 +229,18 @@
 
         onSnapshot(collection(db, "emergencias_activas"), (snapshot) => {
             container.innerHTML = '';
-            
+
+            // Recalcula con qué color pintar cada unidad en "Estado de la flota", según
+            // la emergencia activa a la que pertenezca ahora mismo (si pertenece a alguna).
+            coloresUnidadActiva = {};
+            snapshot.forEach((docSnap) => {
+                const d = docSnap.data();
+                const esServicioUnid = (d.code || '').startsWith('6-');
+                const colorUnid = esServicioUnid ? 'var(--c-orange)' : getCodeColor(d.code);
+                (d.units || []).forEach((u) => { coloresUnidadActiva[u] = colorUnid; });
+            });
+            pintarChipsFlota();
+
             if (snapshot.empty) {
                 container.innerHTML = '<div class="c2-empty" style="color: var(--text-muted); padding: 20px; font-weight: bold;">SISTEMA DESPEJADO. NO HAY UNIDADES DESPACHADAS.</div>';
                 return;
@@ -209,10 +249,10 @@
             snapshot.forEach((docSnap) => {
                 const data = docSnap.data();
                 const emId = docSnap.id;
-                
+
                 const isServicio = data.code.startsWith('6-');
                 const esAcuartelamiento = data.code === 'ACUARTELAMIENTO';
-                const themeColor = isServicio ? 'var(--c-orange)' : (esAcuartelamiento ? 'var(--c-blue)' : 'var(--c-red)');
+                const themeColor = isServicio ? 'var(--c-orange)' : getCodeColor(data.code);
 
                 let card = document.createElement('div');
                 card.className = 'c2-card';
@@ -221,7 +261,7 @@
                 let cardHtml = `
                     <div class="c2-card-header" style="border-bottom: 2px solid ${themeColor}; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                         <div>
-                            <h2 style="color: ${themeColor}; margin: 0; font-size: 1.4rem; font-weight: 900; text-transform: uppercase;">${data.code} ${data.alarma > 0 ? `(${data.alarma}ª Alarma)` : ''}</h2>
+                            <h2 style="color: var(--text-light); margin: 0; font-size: 1.4rem; font-weight: 900; text-transform: uppercase;">${data.code} ${data.alarma > 0 ? `(${data.alarma}ª Alarma)` : ''}</h2>
                             <p style="margin: 5px 0 0 0; color: var(--text-muted); font-size: 1rem; font-weight: bold; text-transform: uppercase;">${data.address || (esAcuartelamiento ? 'TODO EL PERSONAL A CUARTEL' : '')}</p>
                         </div>
                         ${(!isServicio && !esAcuartelamiento) ? `

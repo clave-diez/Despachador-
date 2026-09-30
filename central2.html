@@ -236,7 +236,8 @@
             snapshot.forEach((docSnap) => {
                 const d = docSnap.data();
                 const esServicioUnid = (d.code || '').startsWith('6-');
-                const colorUnid = esServicioUnid ? 'var(--c-orange)' : getCodeColor(d.code);
+                const esAcuartelamientoUnid = d.code === 'ACUARTELAMIENTO';
+                const colorUnid = esServicioUnid ? 'var(--c-orange)' : (esAcuartelamientoUnid ? 'var(--c-blue)' : 'var(--c-red)');
                 (d.units || []).forEach((u) => { coloresUnidadActiva[u] = colorUnid; });
             });
             pintarChipsFlota();

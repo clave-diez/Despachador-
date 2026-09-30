@@ -57,10 +57,11 @@
                 </div>
 
                 <div style="margin-bottom: 15px;">
-                    <label style="color: var(--text-muted); font-weight: bold; font-size: 0.85rem; margin-bottom: 5px; display: block;">ESPECIALIDAD(ES) — opcional</label>
-                    <input type="text" id="f-especialidades" placeholder="Ej: GERSA, Rescate vehicular" autocomplete="off"
-                        style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-dark); color: var(--text-light); font-weight: bold; outline: none;">
-                    <p style="color: var(--text-muted); font-size: 0.75rem; margin: 6px 0 0;">Separadas por coma. Sirve para despachos segregados (ej: solo GERSA), sin importar la compañía de cada uno.</p>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="f-gersa" style="width: 20px; height: 20px; cursor: pointer;">
+                        <label for="f-gersa" style="color: var(--text-light); font-weight: bold; cursor: pointer;">Pertenece al GERSA</label>
+                    </div>
+                    <p style="color: var(--text-muted); font-size: 0.75rem; margin: 6px 0 0 30px;">Para el despacho automático del 10-3-2. El 10-3-1/10-3/10-4 ya se despacha solo a la Segunda Compañía usando el campo Compañía de arriba, así que no necesita marca aparte.</p>
                 </div>
 
                 <div style="margin-bottom: 15px;">
@@ -166,10 +167,10 @@
             const password = document.getElementById('f-password').value;
             const esMaquinista = document.getElementById('f-maquinista').checked;
             const compania = document.getElementById('f-compania').value;
-            const especialidades = document.getElementById('f-especialidades').value
-                .split(',')
-                .map(s => s.trim())
-                .filter(Boolean);
+            // Se guarda igual que antes (arreglo de strings) para no tener que tocar
+            // index.js: tokensDeBomberosQueCoinciden sigue buscando "GERSA" ahí adentro.
+            const perteneceGersa = document.getElementById('f-gersa').checked;
+            const especialidades = perteneceGersa ? ['GERSA'] : [];
             const unidadesQueConduce = esMaquinista
                 ? Array.from(checksUnidades.querySelectorAll('.chk-unidad:checked')).map(c => c.value)
                 : [];

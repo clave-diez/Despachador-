@@ -94,6 +94,11 @@ body { background-color: var(--bg-dark); color: var(--text-light); font-family: 
 .units-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
 .unit-btn { background-color: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-light); padding: 12px 5px; border-radius: 4px; font-weight: bold; cursor: pointer; text-align: center; }
 .unit-btn.selected { background-color: var(--c-orange); border-color: var(--c-orange); color: white; }
+/* Fuera de servicio (doc operaciones/flota): celda roja, no se puede seleccionar. */
+.unit-btn.unit-fuera-servicio { background-color: var(--c-red); border-color: var(--c-red); color: white; opacity: 0.85; }
+/* Ocupada: ya está despachada en otra emergencia activa ahora mismo. Gris, distinto
+   del rojo de fuera de servicio, para no confundir un motivo con el otro de un vistazo. */
+.unit-btn.unit-ocupada { background-color: var(--c-gray); border-color: var(--c-gray); color: white; opacity: 0.85; }
 .maq-select { width: 100%; padding: 10px; background-color: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-light); border-radius: 4px; }
 .emergency-card { background-color: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; margin-bottom: 10px; border-left: 4px solid var(--c-red); }
 .emergency-card.alarma-1, .emergency-card.alarma-2, .emergency-card.alarma-3 { border-left-color: var(--c-orange); }

@@ -194,6 +194,54 @@
         let selectedCoords = null;
         let dispatchMarker = null;
         let estadoFlotaGlobal = {};
+        // Unidades que ya están en OTRA emergencia activa en este momento (se recalcula
+        // en cada actualización de "emergencias_activas"). Se usa junto con
+        // estadoFlotaGlobal para bloquear el botón del carro en el panel de despacho.
+        let unidadesOcupadas = new Set();
+
+        /**
+         * Pinta el estado de cada botón de carro (panel de despacho, "grid-unidades" /
+         * "grid-unidades-extra") según dos fuentes independientes:
+         * - estadoFlotaGlobal: fuera de servicio (rojo) → doc operaciones/flota.
+         * - unidadesOcupadas: ya despachado en otra emergencia activa (gris, "ocupado").
+         * Fuera de servicio manda si por algún motivo coinciden ambas.
+         */
+        function pintarEstadoUnidades() {
+            document.querySelectorAll('#grid-unidades .unit-btn, #grid-unidades-extra .unit-btn').forEach((btn) => {
+                const nombre = btn.innerText;
+                const fueraDeServicio = !!estadoFlotaGlobal[nombre];
+                const ocupada = !fueraDeServicio && unidadesOcupadas.has(nombre);
+                const bloqueada = fueraDeServicio || ocupada;
+
+                btn.disabled = bloqueada;
+                btn.classList.toggle('unit-fuera-servicio', fueraDeServicio);
+                btn.classList.toggle('unit-ocupada', ocupada);
+                btn.title = fueraDeServicio ? 'Fuera de servicio' : (ocupada ? 'Ya está despachado en otra emergencia' : '');
+                btn.style.cursor = bloqueada ? 'not-allowed' : '';
+                btn.style.textDecoration = fueraDeServicio ? 'line-through' : '';
+
+                // Si estaba seleccionada en el formulario de despacho y justo ahora quedó
+                // bloqueada (por cualquiera de los dos motivos), la deseleccionamos para
+                // no dejar un despacho a medio armar con una unidad no disponible.
+                if (bloqueada && btn.classList.contains('selected')) {
+                    btn.classList.remove('selected');
+                    selectedUnits = selectedUnits.filter((u) => u !== nombre);
+                }
+
+                if (!btn.classList.contains('selected')) {
+                    btn.style.backgroundColor = '';
+                }
+            });
+        }
+
+        // Recuerda qué tarjetas tienen el panel de "Nivel de Alarma" desplegado.
+        // Sin esto, como la tarjeta se reconstruye completa en cada onSnapshot
+        // (línea ~431), el panel se volvería a cerrar solo cada vez que llega
+        // cualquier actualización, aunque sea de otra unidad.
+        const panelesAlarmaAbiertos = {};
+        window.onToggleAlarma = function(emId, abierto) {
+            panelesAlarmaAbiertos[emId] = abierto;
+        };
 
         /**
          * Acuartelamiento no necesita dirección, mapa ni carros: solo notifica a
@@ -337,22 +385,21 @@
                 selectedUnits = [];
                 document.querySelectorAll('#grid-unidades .unit-btn, #grid-unidades-extra .unit-btn').forEach(b => {
                     b.classList.remove('selected');
-                    b.style.backgroundColor = 'var(--bg-dark)';
                 });
+                pintarEstadoUnidades();
             }
         };
 
         window.toggleUnit = function(btn) {
-            if (btn.disabled) return; // fuera de servicio, no se puede seleccionar
+            if (btn.disabled) return; // fuera de servicio u ocupada en otra emergencia, no se puede seleccionar
             btn.classList.toggle('selected');
             const unitName = btn.innerText;
             if (btn.classList.contains('selected')) {
                 selectedUnits.push(unitName);
-                btn.style.backgroundColor = 'var(--c-orange)';
             } else {
                 selectedUnits = selectedUnits.filter(u => u !== unitName);
-                btn.style.backgroundColor = 'var(--bg-dark)';
             }
+            pintarEstadoUnidades();
         };
 
         window.toggleMasUnidades = function(btn) {
@@ -414,8 +461,8 @@
                 });
                 document.querySelectorAll('#grid-unidades .unit-btn, #grid-unidades-extra .unit-btn').forEach(b => {
                     b.classList.remove('selected');
-                    b.style.backgroundColor = 'var(--bg-dark)';
                 });
+                pintarEstadoUnidades();
                 document.getElementById('grid-unidades-extra').style.display = 'none';
                 document.getElementById('btn-mas-unidades').textContent = '+ Más unidades ▾';
 
@@ -431,6 +478,14 @@
         onSnapshot(collection(db, "emergencias_activas"), (snapshot) => {
             const container = document.getElementById('active-emergencies-list');
             container.innerHTML = '<h2 style="font-size: 1rem; margin-bottom: 10px; color: var(--text-light);">Emergencias Activas</h2>';
+
+            // Recalcula, en cada pasada, qué carros ya están despachados en alguna
+            // emergencia activa (cualquiera de ellas), para bloquearlos en el panel
+            // de despacho y evitar mandarlos por error a una segunda emergencia.
+            unidadesOcupadas = new Set();
+            snapshot.forEach((docSnap) => {
+                (docSnap.data().units || []).forEach((u) => unidadesOcupadas.add(u));
+            });
 
             snapshot.forEach((docSnap) => {
                 const data = docSnap.data();
@@ -466,31 +521,38 @@
                     }
 
                     if (enCurso || data.alarma > 0) {
-                        const disponiblesAlarma = ALL_UNITS.filter(u => !(data.units || []).includes(u) && !estadoFlotaGlobal[u]);
+                        const disponiblesAlarma = ALL_UNITS.filter(u => !(data.units || []).includes(u) && !estadoFlotaGlobal[u] && !unidadesOcupadas.has(u));
+                        const nivelActualTexto = data.alarma > 0 ? `${data.alarma}ª Alarma` : 'Despacho Inicial';
                         htmlAlarma = `
-                        <div style="background: var(--bg-dark); border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; margin-top: 10px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between;">
-                                <label style="color: var(--text-muted); font-weight: bold; font-size: 0.85rem;">NIVEL DE ALARMA:</label>
-                                <select id="nivel-alarma-${emId}" style="background: var(--bg-panel); color: var(--text-light); border: 1px solid var(--border-color); padding: 5px; border-radius: 4px; font-weight: bold; outline: none; cursor: pointer;">
-                                    <option value="0" ${data.alarma === 0 ? 'selected' : ''}>Despacho Inicial</option>
-                                    <option value="1" ${data.alarma === 1 ? 'selected' : ''}>1ª Alarma</option>
-                                    <option value="2" ${data.alarma === 2 ? 'selected' : ''}>2ª Alarma</option>
-                                    <option value="3" ${data.alarma === 3 ? 'selected' : ''}>3ª Alarma</option>
-                                </select>
-                            </div>
-                            <textarea id="obs-alarma-${emId}" placeholder="Observación de esta alarma (opcional): ej. sale a 2ª alarma con LT-1 y LT-2" rows="2" style="width:100%; margin-top:8px; padding:6px; border-radius:4px; border:1px solid var(--border-color); background: var(--bg-panel); color: var(--text-light); font-size:0.8rem; box-sizing:border-box; resize: vertical;"></textarea>
-                            ${disponiblesAlarma.length ? `
-                                <label style="color: var(--text-muted); font-size: 0.72rem; font-weight:bold; display:block; margin-top:8px;">CARROS QUE SALEN EN ESTA ALARMA (opcional):</label>
-                                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;">
-                                    ${disponiblesAlarma.map(u => `
-                                        <label style="display:flex; align-items:center; gap:4px; color: var(--text-light); font-size:0.78rem; background: var(--bg-panel); border:1px solid var(--border-color); padding:4px 8px; border-radius:12px; cursor:pointer;">
-                                            <input type="checkbox" class="chk-carro-alarma-${emId}" value="${u}" style="cursor:pointer;"> ${u}
-                                        </label>
-                                    `).join('')}
+                        <details id="detalles-alarma-${emId}" ontoggle="window.onToggleAlarma('${emId}', this.open)" ${panelesAlarmaAbiertos[emId] ? 'open' : ''} style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; margin-top: 10px;">
+                            <summary style="padding: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; color: var(--text-muted); list-style: none; display: flex; align-items: center; justify-content: space-between;">
+                                <span>NIVEL DE ALARMA: <span style="color: var(--text-light);">${nivelActualTexto}</span></span>
+                                <span aria-hidden="true">▾</span>
+                            </summary>
+                            <div style="padding: 0 10px 10px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+                                    <label style="color: var(--text-muted); font-weight: bold; font-size: 0.85rem;">CAMBIAR A:</label>
+                                    <select id="nivel-alarma-${emId}" style="background: var(--bg-panel); color: var(--text-light); border: 1px solid var(--border-color); padding: 5px; border-radius: 4px; font-weight: bold; outline: none; cursor: pointer;">
+                                        <option value="0" ${data.alarma === 0 ? 'selected' : ''}>Despacho Inicial</option>
+                                        <option value="1" ${data.alarma === 1 ? 'selected' : ''}>1ª Alarma</option>
+                                        <option value="2" ${data.alarma === 2 ? 'selected' : ''}>2ª Alarma</option>
+                                        <option value="3" ${data.alarma === 3 ? 'selected' : ''}>3ª Alarma</option>
+                                    </select>
                                 </div>
-                            ` : ''}
-                            <button onclick="window.declararAlarma('${emId}')" style="margin-top:10px; width:100%; padding:8px; background: var(--c-orange); color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; text-transform:uppercase; font-size:0.85rem;">Declarar / Actualizar</button>
-                        </div>`;
+                                <textarea id="obs-alarma-${emId}" placeholder="Observación de esta alarma (opcional): ej. sale a 2ª alarma con LT-1 y LT-2" rows="2" style="width:100%; margin-top:8px; padding:6px; border-radius:4px; border:1px solid var(--border-color); background: var(--bg-panel); color: var(--text-light); font-size:0.8rem; box-sizing:border-box; resize: vertical;"></textarea>
+                                ${disponiblesAlarma.length ? `
+                                    <label style="color: var(--text-muted); font-size: 0.72rem; font-weight:bold; display:block; margin-top:8px;">CARROS QUE SALEN EN ESTA ALARMA (opcional):</label>
+                                    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;">
+                                        ${disponiblesAlarma.map(u => `
+                                            <label style="display:flex; align-items:center; gap:4px; color: var(--text-light); font-size:0.78rem; background: var(--bg-panel); border:1px solid var(--border-color); padding:4px 8px; border-radius:12px; cursor:pointer;">
+                                                <input type="checkbox" class="chk-carro-alarma-${emId}" value="${u}" style="cursor:pointer;"> ${u}
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                                <button onclick="window.declararAlarma('${emId}')" style="margin-top:10px; width:100%; padding:8px; background: var(--c-orange); color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; text-transform:uppercase; font-size:0.85rem;">Declarar / Actualizar</button>
+                            </div>
+                        </details>`;
                     } else {
                         htmlAlarma = `
                         <div style="background: var(--bg-dark); border: 1px dashed var(--border-color); padding: 10px; border-radius: 4px; margin-top: 10px; text-align: center;">
@@ -513,7 +575,7 @@
                 // Deja fuera las unidades ya despachadas acá y las que estén fuera de servicio.
                 let agregarUnidadHtml = '';
                 if (!esServicio && !esAcuartelamiento) {
-                    const disponibles = ALL_UNITS.filter(u => !(data.units || []).includes(u) && !estadoFlotaGlobal[u]);
+                    const disponibles = ALL_UNITS.filter(u => !(data.units || []).includes(u) && !estadoFlotaGlobal[u] && !unidadesOcupadas.has(u));
                     if (disponibles.length) {
                         agregarUnidadHtml = `
                         <select onchange="window.agregarUnidad('${emId}', this.value)" style="margin-top:8px; width:100%; padding:6px; border-radius:4px; border:1px solid var(--border-color); background: var(--bg-dark); color: var(--text-light); font-weight:bold; font-size:0.8rem; cursor:pointer;">
@@ -540,6 +602,8 @@
                 `;
                 container.appendChild(card);
             });
+
+            pintarEstadoUnidades();
         });
 
         // Declara (o vuelve a confirmar) el nivel de alarma de una emergencia,
@@ -694,22 +758,7 @@
         // pueda despachar por error, y también se saca de la lista de "+ Despachar otro carro".
         onSnapshot(doc(db, "operaciones", "flota"), (snap) => {
             estadoFlotaGlobal = snap.exists() ? snap.data() : {};
-            document.querySelectorAll('#grid-unidades .unit-btn, #grid-unidades-extra .unit-btn').forEach((btn) => {
-                const fueraDeServicio = !!estadoFlotaGlobal[btn.innerText];
-                btn.disabled = fueraDeServicio;
-                btn.title = fueraDeServicio ? 'Fuera de servicio' : '';
-                btn.style.opacity = fueraDeServicio ? '0.4' : '';
-                btn.style.cursor = fueraDeServicio ? 'not-allowed' : '';
-                btn.style.textDecoration = fueraDeServicio ? 'line-through' : '';
-
-                // Si estaba seleccionada y justo ahora la marcaron fuera de servicio,
-                // la deseleccionamos para no dejar un despacho a medio armar con ella.
-                if (fueraDeServicio && btn.classList.contains('selected')) {
-                    btn.classList.remove('selected');
-                    btn.style.backgroundColor = 'var(--bg-dark)';
-                    selectedUnits = selectedUnits.filter((u) => u !== btn.innerText);
-                }
-            });
+            pintarEstadoUnidades();
         }, (error) => console.error("Error leyendo estado de la flota:", error));
 
         onSnapshot(collection(db, "maquinistas"), (snapshot) => {

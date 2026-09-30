@@ -260,6 +260,18 @@
                     `;
                 }
 
+                if (!isServicio && !esAcuartelamiento) {
+                    cardHtml += `
+                        <div style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--border-color);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span style="color: var(--text-muted); font-size: 0.7rem; font-weight: bold; text-transform: uppercase;">Preinforme</span>
+                                <button onclick="window.editarPreinforme('${emId}')" style="background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); padding: 4px 10px; border-radius: 5px; font-size: 0.68rem; font-weight: bold; cursor: pointer; text-transform: uppercase;">${data.preinforme ? 'Editar' : '+ Agregar'}</button>
+                            </div>
+                            <p style="margin: 0; color: var(--text-light); font-size: 0.85rem; white-space: pre-wrap;">${data.preinforme ? data.preinforme : '<span style="color: var(--text-muted); font-style: italic;">Sin preinforme.</span>'}</p>
+                        </div>
+                    `;
+                }
+
                 if (isServicio) {
                     cardHtml += `<button style="background: ${themeColor}; color: white; border: none; padding: 12px; margin-top: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; text-transform: uppercase; width: 100%;" onclick="window.cerrarServicio('${emId}')">FINALIZAR SERVICIO Y ARCHIVAR</button>`;
                 }
@@ -349,6 +361,23 @@
             } catch(e) {
                 console.error("Error actualizando tiempo: ", e);
                 alert("Error de conexión al guardar la hora.");
+            }
+        };
+
+        // Usa prompt() a propósito (no una caja de texto siempre visible): al ser
+        // modal, bloquea la re-renderización mientras se escribe, así nadie pierde
+        // lo que está tipeando si llega una actualización de otra unidad justo en ese momento.
+        window.editarPreinforme = async function(emId) {
+            try {
+                const docRef = doc(db, "emergencias_activas", emId);
+                const docSnap = await getDoc(docRef);
+                const actual = docSnap.exists() ? (docSnap.data().preinforme || '') : '';
+                const nuevo = prompt('Preinforme de esta emergencia:', actual);
+                if (nuevo === null) return; // canceló
+                await updateDoc(docRef, { preinforme: nuevo });
+            } catch (e) {
+                console.error('Error guardando preinforme:', e);
+                alert('No se pudo guardar el preinforme.');
             }
         };
 

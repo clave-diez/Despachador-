@@ -466,15 +466,30 @@
                     }
 
                     if (enCurso || data.alarma > 0) {
+                        const disponiblesAlarma = ALL_UNITS.filter(u => !(data.units || []).includes(u) && !estadoFlotaGlobal[u]);
                         htmlAlarma = `
-                        <div style="background: var(--bg-dark); border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; margin-top: 10px; display: flex; align-items: center; justify-content: space-between;">
-                            <label style="color: var(--text-muted); font-weight: bold; font-size: 0.85rem;">NIVEL DE ALARMA:</label>
-                            <select onchange="window.actualizarAlarma('${emId}', this.value)" style="background: var(--bg-panel); color: var(--text-light); border: 1px solid var(--border-color); padding: 5px; border-radius: 4px; font-weight: bold; outline: none; cursor: pointer;">
-                                <option value="0" ${data.alarma === 0 ? 'selected' : ''}>Despacho Inicial</option>
-                                <option value="1" ${data.alarma === 1 ? 'selected' : ''}>1ª Alarma</option>
-                                <option value="2" ${data.alarma === 2 ? 'selected' : ''}>2ª Alarma</option>
-                                <option value="3" ${data.alarma === 3 ? 'selected' : ''}>3ª Alarma</option>
-                            </select>
+                        <div style="background: var(--bg-dark); border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; margin-top: 10px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="color: var(--text-muted); font-weight: bold; font-size: 0.85rem;">NIVEL DE ALARMA:</label>
+                                <select id="nivel-alarma-${emId}" style="background: var(--bg-panel); color: var(--text-light); border: 1px solid var(--border-color); padding: 5px; border-radius: 4px; font-weight: bold; outline: none; cursor: pointer;">
+                                    <option value="0" ${data.alarma === 0 ? 'selected' : ''}>Despacho Inicial</option>
+                                    <option value="1" ${data.alarma === 1 ? 'selected' : ''}>1ª Alarma</option>
+                                    <option value="2" ${data.alarma === 2 ? 'selected' : ''}>2ª Alarma</option>
+                                    <option value="3" ${data.alarma === 3 ? 'selected' : ''}>3ª Alarma</option>
+                                </select>
+                            </div>
+                            <textarea id="obs-alarma-${emId}" placeholder="Observación de esta alarma (opcional): ej. sale a 2ª alarma con LT-1 y LT-2" rows="2" style="width:100%; margin-top:8px; padding:6px; border-radius:4px; border:1px solid var(--border-color); background: var(--bg-panel); color: var(--text-light); font-size:0.8rem; box-sizing:border-box; resize: vertical;"></textarea>
+                            ${disponiblesAlarma.length ? `
+                                <label style="color: var(--text-muted); font-size: 0.72rem; font-weight:bold; display:block; margin-top:8px;">CARROS QUE SALEN EN ESTA ALARMA (opcional):</label>
+                                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;">
+                                    ${disponiblesAlarma.map(u => `
+                                        <label style="display:flex; align-items:center; gap:4px; color: var(--text-light); font-size:0.78rem; background: var(--bg-panel); border:1px solid var(--border-color); padding:4px 8px; border-radius:12px; cursor:pointer;">
+                                            <input type="checkbox" class="chk-carro-alarma-${emId}" value="${u}" style="cursor:pointer;"> ${u}
+                                        </label>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            <button onclick="window.declararAlarma('${emId}')" style="margin-top:10px; width:100%; padding:8px; background: var(--c-orange); color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; text-transform:uppercase; font-size:0.85rem;">Declarar / Actualizar</button>
                         </div>`;
                     } else {
                         htmlAlarma = `
@@ -527,13 +542,49 @@
             });
         });
 
-        window.actualizarAlarma = async function(id, nuevaAlarma) {
+        // Declara (o vuelve a confirmar) el nivel de alarma de una emergencia,
+        // junto con una observación y los carros que salen en esa alarma —
+        // todo en una sola actualización, para que el push le llegue completo al bombero.
+        window.declararAlarma = async function(emId) {
+            const selectNivel = document.getElementById(`nivel-alarma-${emId}`);
+            const inputObs = document.getElementById(`obs-alarma-${emId}`);
+            if (!selectNivel) return;
+
+            const nuevoNivel = parseInt(selectNivel.value);
+            const nuevaObs = (inputObs ? inputObs.value : '').trim().toUpperCase();
+            const carrosNuevos = Array.from(document.querySelectorAll(`.chk-carro-alarma-${emId}:checked`)).map(c => c.value);
+
             try {
-                const docRef = doc(db, "emergencias_activas", id);
-                await updateDoc(docRef, { alarma: parseInt(nuevaAlarma) });
-            } catch(e) {
-                console.error("Error actualizando alarma:", e);
-                alert("Error de conexión al actualizar el nivel de alarma.");
+                const docRef = doc(db, "emergencias_activas", emId);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) return;
+                const data = docSnap.data();
+
+                const updates = { alarma: nuevoNivel };
+
+                if (carrosNuevos.length) {
+                    const nuevosUnits = [...(data.units || [])];
+                    const nuevosLogs = { ...(data.logs || {}) };
+                    carrosNuevos.forEach((u) => {
+                        if (!nuevosUnits.includes(u)) {
+                            nuevosUnits.push(u);
+                            nuevosLogs[u] = { "6-0": "", "6-3": "", "6-7": "", "6-8": "", "6-9": "", "6-10": "", km: "", combustible: "" };
+                        }
+                    });
+                    updates.units = nuevosUnits;
+                    updates.logs = nuevosLogs;
+                }
+
+                if (nuevaObs) {
+                    const etiquetaNivel = nuevoNivel > 0 ? `${nuevoNivel}ª ALARMA` : 'DESPACHO INICIAL';
+                    const obsPrevia = data.obs || '';
+                    updates.obs = obsPrevia ? `${obsPrevia} | ${etiquetaNivel}: ${nuevaObs}` : `${etiquetaNivel}: ${nuevaObs}`;
+                }
+
+                await updateDoc(docRef, updates);
+            } catch (e) {
+                console.error("Error declarando alarma:", e);
+                alert("Error de conexión al declarar la alarma.");
             }
         };
 

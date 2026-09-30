@@ -16,10 +16,12 @@
     </div>
 
     <div class="triptych">
-        
+
         <div class="panel panel-left" id="panel-claves">
             <h2 style="font-size: 1rem; margin-bottom: 5px;">CLAVES 10-X</h2>
             <div class="claves-list" id="claves-list">
+                <button class="clave-btn" data-code="ACUARTELAMIENTO" style="--clave-color: var(--c-blue); border-style: dashed;" onclick="window.selectClave(this)">🏠 ACUARTELAMIENTO</button>
+                <div style="border-bottom: 1px solid var(--border-color); margin: 6px 0;"></div>
                 <button class="clave-btn" data-code="10-0" style="--clave-color: var(--c-red);" onclick="window.selectClave(this)">10-0 ESTRUCTURAL</button>
                 <button class="clave-btn" data-code="10-1" style="--clave-color: var(--c-red);" onclick="window.selectClave(this)">10-1 VEHÍCULOS</button>
                 <button class="clave-btn" data-code="10-2" style="--clave-color: var(--c-cyan);" onclick="window.selectClave(this)">10-2 PASTIZAL / BOSQUE</button>
@@ -46,63 +48,32 @@
 
         <div class="panel panel-center" id="panel-form">
             <div class="dispatch-form-layout">
-                
-                <div class="mini-map">
+
+                <div class="mini-map" id="grupo-mapa">
                     <div id="map"></div>
                 </div>
 
-                <div class="gps-btn-group">
+                <div class="gps-btn-group" id="grupo-gps">
                     <button class="btn-gps-wa" id="btn-link-gps-wa">📱 GPS x WHATSAPP</button>
                     <button class="btn-gps-sms" id="btn-link-gps-sms">✉️ GPS x SMS</button>
                 </div>
 
-                <div class="form-group" style="position: relative;">
+                <div class="form-group" id="grupo-direccion" style="position: relative;">
                     <input type="text" id="direccion" placeholder="Dirección Exacta, Nº e Intersección..." autocomplete="off">
                     <ul id="address-suggestions" class="address-suggestions-list" style="display: none; position: absolute; width: 100%; background: var(--bg-panel); z-index: 9999; list-style: none; padding: 0; margin: 0; border: 1px solid var(--border-color); max-height: 200px; overflow-y: auto;"></ul>
                 </div>
 
                 <div class="form-group">
                     <textarea id="observaciones" rows="2" placeholder="Observaciones..."></textarea>
-                    
+
                     <label class="chk-atentado-container" style="display: none;">
                         <input type="checkbox" id="chk-atentado" style="width:18px; height:18px;">
                         DESPACHAR COMO POSIBLE ATENTADO
                     </label>
                 </div>
-                
-                <div class="form-group">
-                    <button type="button" onclick="window.toggleSegmentacion()" style="
-                        background: transparent; border: none; color: var(--text-muted);
-                        font-size: 0.78rem; font-weight: bold; text-transform: uppercase;
-                        cursor: pointer; padding: 4px 0; text-decoration: underline;
-                    ">Restringir a quién avisar (opcional) ▾</button>
-
-                    <div id="panel-segmentacion" style="display: none; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-top: 6px;">
-                        <span style="color: var(--text-muted); font-size: 0.72rem; display: block; margin-bottom: 8px;">
-                            Si no marcas nada, la alerta llega a TODOS los voluntarios como siempre.
-                        </span>
-
-                        <label style="color: var(--text-muted); font-weight: bold; font-size: 0.75rem; display: block; margin-bottom: 4px;">SOLO ESTAS COMPAÑÍAS:</label>
-                        <div style="display: flex; gap: 12px; margin-bottom: 10px;">
-                            <label style="display:flex; align-items:center; gap:5px; color: var(--text-light); font-size: 0.82rem;">
-                                <input type="checkbox" class="chk-compania-seg" value="Primera"> Primera
-                            </label>
-                            <label style="display:flex; align-items:center; gap:5px; color: var(--text-light); font-size: 0.82rem;">
-                                <input type="checkbox" class="chk-compania-seg" value="Segunda"> Segunda
-                            </label>
-                            <label style="display:flex; align-items:center; gap:5px; color: var(--text-light); font-size: 0.82rem;">
-                                <input type="checkbox" class="chk-compania-seg" value="Tercera"> Tercera
-                            </label>
-                        </div>
-
-                        <label style="color: var(--text-muted); font-weight: bold; font-size: 0.75rem; display: block; margin-bottom: 4px;">SOLO ESTA ESPECIALIDAD (opcional):</label>
-                        <input type="text" id="input-especialidad-seg" placeholder="Ej: GERSA" autocomplete="off"
-                            style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid var(--border-color); background: var(--bg-panel); color: var(--text-light); font-size: 0.85rem;">
-                    </div>
-                </div>
 
                 <div class="form-footer-stick">
-                    <button class="btn-dispatch" onclick="window.despachar()">DESPACHAR EMERGENCIA</button>
+                    <button class="btn-dispatch" id="btn-despachar" onclick="window.despachar()">DESPACHAR EMERGENCIA</button>
                 </div>
             </div>
         </div>
@@ -110,7 +81,7 @@
         <div class="resizer" id="resizer-right"></div>
 
         <div class="panel panel-right" id="panel-units">
-            <div class="units-section">
+            <div class="units-section" id="grupo-unidades">
                 <h2>UNIDADES</h2>
                 <div class="units-grid" id="grid-unidades">
                     <button class="unit-btn" onclick="window.toggleUnit(this)">B-1</button>
@@ -122,6 +93,17 @@
                     <button class="unit-btn" onclick="window.toggleUnit(this)">B-3</button>
                     <button class="unit-btn" onclick="window.toggleUnit(this)">BX-3</button>
                     <button class="unit-btn" onclick="window.toggleUnit(this)">G-3</button>
+                </div>
+                <button type="button" id="btn-mas-unidades" onclick="window.toggleMasUnidades(this)" style="
+                    background: transparent; border: none; color: var(--text-muted);
+                    font-size: 0.78rem; font-weight: bold; text-transform: uppercase;
+                    cursor: pointer; padding: 6px 0; text-decoration: underline; width: 100%; text-align: left;
+                ">+ Más unidades ▾</button>
+                <div class="units-grid" id="grid-unidades-extra" style="display: none;">
+                    <button class="unit-btn" onclick="window.toggleUnit(this)">RX-2</button>
+                    <button class="unit-btn" onclick="window.toggleUnit(this)">UT-2</button>
+                    <button class="unit-btn" onclick="window.toggleUnit(this)">LT-1</button>
+                    <button class="unit-btn" onclick="window.toggleUnit(this)">K-1</button>
                 </div>
             </div>
 
@@ -154,7 +136,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, doc, deleteDoc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
@@ -171,8 +153,13 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // Catálogo completo de carros. Los primeros 9 quedan siempre visibles en
+        // el panel de despacho; el resto vive en el desplegable "+ Más unidades".
+        const ALL_UNITS = ['B-1', 'Z-1', 'BT-1', 'B-2', 'R-2', 'BX-2', 'B-3', 'BX-3', 'G-3', 'RX-2', 'UT-2', 'LT-1', 'K-1'];
+
         // Mismo código de colores por tipo de clave que usa la app de voluntarios.
         const CODE_COLORS = {
+            "ACUARTELAMIENTO": "var(--c-blue)",
             "10-0": "var(--c-red)", "10-1": "var(--c-red)",
             "10-2": "var(--c-cyan)",
             "10-3-1": "var(--c-orange)", "10-3-2": "var(--c-purple)",
@@ -196,7 +183,7 @@
 
         let map = L.map('map', { zoomControl: false }).setView([-38.7423, -72.9538], 15);
         const mapboxToken = 'pk.eyJ1Ijoiam9yZ2VsYW5kZXIiLCJhIjoiY21yazBmNngzMDBiNDJ5b2pkMjF3dHljbCJ9.cbcHOpTihe9Y-9l6HZHjAw';
-        
+
         L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`, {
             maxZoom: 19,
             attribution: '© Mapbox'
@@ -204,8 +191,22 @@
 
         let selectedClave = null;
         let selectedUnits = [];
-        let selectedCoords = null; 
-        let dispatchMarker = null; 
+        let selectedCoords = null;
+        let dispatchMarker = null;
+        let estadoFlotaGlobal = {};
+
+        /**
+         * Acuartelamiento no necesita dirección, mapa ni carros: solo notifica a
+         * todos como una emergencia normal. Se ocultan esos bloques del formulario
+         * mientras esté seleccionado, para no confundir al despachador.
+         */
+        function aplicarModoAcuartelamiento(activo) {
+            document.getElementById('grupo-mapa').style.display = activo ? 'none' : '';
+            document.getElementById('grupo-gps').style.display = activo ? 'none' : '';
+            document.getElementById('grupo-direccion').style.display = activo ? 'none' : '';
+            document.getElementById('grupo-unidades').style.display = activo ? 'none' : '';
+            document.getElementById('btn-despachar').textContent = activo ? 'ACUARTELAR' : 'DESPACHAR EMERGENCIA';
+        }
 
         // Pin manual: si el buscador no encuentra la dirección, el despachador
         // marca el punto directo tocando el mapa. Reutiliza las mismas
@@ -256,7 +257,7 @@
             clearTimeout(timeoutId);
             const query = e.target.value;
             if (query.length < 3) { suggestionsList.style.display = 'none'; return; }
-            
+
             // Lógica optimizada para intersecciones chilenas
             let searchQuery = query
                 .replace(/\bcon\b/gi, ' and ')
@@ -269,9 +270,9 @@
             if (searchQuery.includes(' and ')) {
                 searchQuery = searchQuery.replace(/[0-9]+/g, '');
             }
-            
+
             searchQuery += ', Nueva Imperial, Chile';
-            
+
             const bboxImperial = '-73.10,-38.85,-72.80,-38.65';
 
             timeoutId = setTimeout(() => {
@@ -286,17 +287,17 @@
                                 li.style.cursor = 'pointer';
                                 li.style.color = '#16181D';
                                 li.style.borderBottom = '1px solid #E4E6EA';
-                                
+
                                 let placeName = place.place_name.split(',')[0].trim();
                                 li.innerText = placeName;
-                                
+
                                 li.addEventListener('click', () => {
                                     addressInput.value = placeName;
                                     suggestionsList.style.display = 'none';
-                                    
-                                    selectedCoords = [place.center[1], place.center[0]]; 
+
+                                    selectedCoords = [place.center[1], place.center[0]];
                                     map.setView(selectedCoords, 17);
-                                    
+
                                     if (dispatchMarker) map.removeLayer(dispatchMarker);
                                     dispatchMarker = L.marker(selectedCoords, {
                                         icon: L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', iconSize: [25, 41], iconAnchor: [12, 41] })
@@ -324,6 +325,21 @@
             btn.style.backgroundColor = '';
             btn.style.color = '';
             selectedClave = btn.getAttribute('data-code');
+
+            const esAcuartelamiento = selectedClave === 'ACUARTELAMIENTO';
+            aplicarModoAcuartelamiento(esAcuartelamiento);
+
+            if (esAcuartelamiento) {
+                if (dispatchMarker) { map.removeLayer(dispatchMarker); dispatchMarker = null; }
+                selectedCoords = null;
+                addressInput.value = '';
+                suggestionsList.style.display = 'none';
+                selectedUnits = [];
+                document.querySelectorAll('#grid-unidades .unit-btn, #grid-unidades-extra .unit-btn').forEach(b => {
+                    b.classList.remove('selected');
+                    b.style.backgroundColor = 'var(--bg-dark)';
+                });
+            }
         };
 
         window.toggleUnit = function(btn) {
@@ -339,78 +355,73 @@
             }
         };
 
-        window.toggleSegmentacion = function() {
-            const panel = document.getElementById('panel-segmentacion');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        window.toggleMasUnidades = function(btn) {
+            const panel = document.getElementById('grid-unidades-extra');
+            const abierto = panel.style.display !== 'none';
+            panel.style.display = abierto ? 'none' : '';
+            btn.textContent = abierto ? '+ Más unidades ▾' : '– Ocultar unidades adicionales ▴';
         };
 
         window.despachar = async function() {
+            const esAcuartelamiento = selectedClave === 'ACUARTELAMIENTO';
             const direccion = document.getElementById('direccion').value.toUpperCase();
             const observaciones = document.getElementById('observaciones').value.toUpperCase();
             const alarma = 0;
             const isAtentado = document.getElementById('chk-atentado').checked;
 
-            // Despacho segregado (opcional): si no se marca nada acá, la Cloud
-            // Function avisa a todos los voluntarios como siempre.
-            const companiasSeg = Array.from(document.querySelectorAll('.chk-compania-seg:checked')).map(c => c.value);
-            const especialidadSeg = document.getElementById('input-especialidad-seg').value.trim();
-            const haySegmentacion = companiasSeg.length > 0 || especialidadSeg !== '';
-            
             if (!selectedClave) return alert("Debe seleccionar una Clave 10-X");
-            if (!direccion) return alert("Debe ingresar una dirección");
-            if (selectedUnits.length === 0) return alert("Debe seleccionar al menos una Unidad");
+            if (!esAcuartelamiento) {
+                if (!direccion) return alert("Debe ingresar una dirección");
+                if (selectedUnits.length === 0) return alert("Debe seleccionar al menos una Unidad");
+            }
 
-            let fullAddress = direccion;
+            const fullAddress = esAcuartelamiento ? '' : direccion;
+            const unidadesFinal = esAcuartelamiento ? [] : selectedUnits;
 
             let initialLogs = {};
-            selectedUnits.forEach(u => {
+            unidadesFinal.forEach(u => {
                 initialLogs[u] = { "6-0": "", "6-3": "", "6-7": "", "6-8": "", "6-9": "", "6-10": "", "km": "", "combustible": "" };
             });
 
             try {
-                const emIdNum = Date.now(); 
+                const emIdNum = Date.now();
 
                 await setDoc(doc(db, "emergencias_activas", emIdNum.toString()), {
-                    id: emIdNum, 
+                    id: emIdNum,
                     code: selectedClave,
                     alarma: alarma,
                     address: fullAddress,
                     obs: observaciones,
-                    isAtentado: isAtentado,
-                    units: selectedUnits,
+                    isAtentado: esAcuartelamiento ? false : isAtentado,
+                    units: unidadesFinal,
                     logs: initialLogs,
-                    markerLatLng: selectedCoords ? { lat: selectedCoords[0], lng: selectedCoords[1] } : null, 
+                    markerLatLng: (!esAcuartelamiento && selectedCoords) ? { lat: selectedCoords[0], lng: selectedCoords[1] } : null,
                     timestamp: serverTimestamp(),
-                    ...(haySegmentacion ? {
-                        segmentacion: {
-                            companias: companiasSeg,
-                            especialidad: especialidadSeg || null
-                        }
-                    } : {})
                 });
 
                 document.getElementById('direccion').value = '';
                 document.getElementById('observaciones').value = '';
                 document.getElementById('chk-atentado').checked = false;
-                document.querySelectorAll('.chk-compania-seg').forEach(c => c.checked = false);
-                document.getElementById('input-especialidad-seg').value = '';
-                document.getElementById('panel-segmentacion').style.display = 'none';
 
                 selectedClave = null;
                 selectedUnits = [];
                 selectedCoords = null;
                 if (dispatchMarker) { map.removeLayer(dispatchMarker); dispatchMarker = null; }
-                
+
                 document.querySelectorAll('.clave-btn').forEach(b => {
                     b.classList.remove('selected');
                     b.style.backgroundColor = 'var(--bg-panel)';
                 });
-                document.querySelectorAll('.unit-btn').forEach(b => {
+                document.querySelectorAll('#grid-unidades .unit-btn, #grid-unidades-extra .unit-btn').forEach(b => {
                     b.classList.remove('selected');
                     b.style.backgroundColor = 'var(--bg-dark)';
                 });
-                
-                alert("¡Despacho realizado con éxito!");
+                document.getElementById('grid-unidades-extra').style.display = 'none';
+                document.getElementById('btn-mas-unidades').textContent = '+ Más unidades ▾';
+
+                aplicarModoAcuartelamiento(false);
+
+                alert(esAcuartelamiento ? "¡Acuartelamiento enviado!" : "¡Despacho realizado con éxito!");
             } catch (e) {
                 console.error("Error despachando: ", e);
                 alert("Error de conexión al despachar.");
@@ -420,11 +431,13 @@
         onSnapshot(collection(db, "emergencias_activas"), (snapshot) => {
             const container = document.getElementById('active-emergencies-list');
             container.innerHTML = '<h2 style="font-size: 1rem; margin-bottom: 10px; color: var(--text-light);">Emergencias Activas</h2>';
-            
+
             snapshot.forEach((docSnap) => {
                 const data = docSnap.data();
                 const emId = docSnap.id;
-                
+                const esServicio = (data.code || '').startsWith('6-');
+                const esAcuartelamiento = data.code === 'ACUARTELAMIENTO';
+
                 let card = document.createElement('div');
                 card.style.backgroundColor = 'var(--bg-panel)';
                 card.style.border = '1px solid var(--border-color)';
@@ -432,18 +445,18 @@
                 card.style.borderRadius = '6px';
                 card.style.padding = '15px';
                 card.style.marginBottom = '10px';
-                
+
                 let timeStr = "--:--";
                 if(data.timestamp) {
                     timeStr = data.timestamp.toDate().toLocaleTimeString('es-CL', { hour12: false, hour: '2-digit', minute:'2-digit' });
                 }
 
                 let headerText = data.code + (data.alarma > 0 ? " (" + data.alarma + "ª Alarma)" : "");
-                
+
                 let htmlAlarma = '';
                 if (data.code === '10-0' || data.code === '10-2') {
                     let enCurso = false;
-                    
+
                     if (data.logs) {
                         Object.values(data.logs).forEach(log => {
                             if (log["6-0"] && log["6-0"].trim() !== "") {
@@ -451,7 +464,7 @@
                             }
                         });
                     }
-                    
+
                     if (enCurso || data.alarma > 0) {
                         htmlAlarma = `
                         <div style="background: var(--bg-dark); border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; margin-top: 10px; display: flex; align-items: center; justify-content: space-between;">
@@ -471,18 +484,44 @@
                     }
                 }
 
+                const lugarHtml = data.address
+                    ? `<p style="margin: 0; font-size: 0.9rem; color: var(--text-muted);"><strong>Lugar:</strong> ${data.address}</p>`
+                    : '';
+                const unidadesHtml = (data.units && data.units.length)
+                    ? `<p style="margin: 0; font-size: 0.9rem; color: var(--text-muted);"><strong>Unidades:</strong> ${data.units.join(', ')}</p>`
+                    : '';
+                const obsHtml = data.obs
+                    ? `<p style="margin: 4px 0 0; font-size: 0.85rem; color: var(--text-muted);"><strong>Obs:</strong> ${data.obs}</p>`
+                    : '';
+
+                // "+ Despachar otro carro": solo para emergencias reales (no acuartelamiento, no servicios 6-X).
+                // Deja fuera las unidades ya despachadas acá y las que estén fuera de servicio.
+                let agregarUnidadHtml = '';
+                if (!esServicio && !esAcuartelamiento) {
+                    const disponibles = ALL_UNITS.filter(u => !(data.units || []).includes(u) && !estadoFlotaGlobal[u]);
+                    if (disponibles.length) {
+                        agregarUnidadHtml = `
+                        <select onchange="window.agregarUnidad('${emId}', this.value)" style="margin-top:8px; width:100%; padding:6px; border-radius:4px; border:1px solid var(--border-color); background: var(--bg-dark); color: var(--text-light); font-weight:bold; font-size:0.8rem; cursor:pointer;">
+                            <option value="">+ Despachar otro carro…</option>
+                            ${disponibles.map(u => `<option value="${u}">${u}</option>`).join('')}
+                        </select>`;
+                    }
+                }
+
                 card.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
                         <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-light);">${headerText}</h3>
                         <span style="color:var(--text-muted); font-size:0.85rem; font-weight:bold;">${timeStr}</span>
                     </div>
-                    <p style="margin: 0; font-size: 0.9rem; color: var(--text-muted);"><strong>Lugar:</strong> ${data.address}</p>
-                    <p style="margin: 0; font-size: 0.9rem; color: var(--text-muted);"><strong>Unidades:</strong> ${(data.units || []).join(', ')}</p>
+                    ${lugarHtml}
+                    ${unidadesHtml}
+                    ${obsHtml}
                     ${data.isAtentado ? '<p style="color:var(--c-red); font-weight:bold; font-size:0.9rem; margin-top:5px; margin-bottom:0;">⚠️ POSIBLE ATENTADO</p>' : ''}
-                    
-                    ${htmlAlarma}
 
-                    <button style="margin-top:10px; width: 100%; padding:8px; background: transparent; border: 1px solid var(--c-red); color: var(--c-red); border-radius: 4px; font-weight: bold; cursor: pointer;" onclick="window.cerrarEmergencia('${emId}')">FINALIZAR EMERGENCIA Y ARCHIVAR</button>
+                    ${htmlAlarma}
+                    ${agregarUnidadHtml}
+
+                    <button style="margin-top:10px; width: 100%; padding:8px; background: transparent; border: 1px solid var(--c-red); color: var(--c-red); border-radius: 4px; font-weight: bold; cursor: pointer;" onclick="window.cerrarEmergencia('${emId}')">FINALIZAR ${esAcuartelamiento ? 'ACUARTELAMIENTO' : 'EMERGENCIA'} Y ARCHIVAR</button>
                 `;
                 container.appendChild(card);
             });
@@ -498,6 +537,26 @@
             }
         };
 
+        window.agregarUnidad = async function(emId, unidad) {
+            if (!unidad) return;
+            try {
+                const docRef = doc(db, "emergencias_activas", emId);
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) return;
+                const data = docSnap.data();
+                if ((data.units || []).includes(unidad)) return; // ya está, no duplicar
+
+                const nuevosUnits = [...(data.units || []), unidad];
+                const nuevosLogs = { ...(data.logs || {}) };
+                nuevosLogs[unidad] = { "6-0": "", "6-3": "", "6-7": "", "6-8": "", "6-9": "", "6-10": "", km: "", combustible: "" };
+
+                await updateDoc(docRef, { units: nuevosUnits, logs: nuevosLogs });
+            } catch (e) {
+                console.error("Error agregando unidad:", e);
+                alert("No se pudo agregar la unidad. Revisa tu conexión.");
+            }
+        };
+
         window.cerrarEmergencia = async function(id) {
             if(confirm('¿Está seguro de finalizar esta emergencia? Pasará automáticamente al historial GYRAS.')) {
                 try {
@@ -505,9 +564,9 @@
                     const docSnap = await getDoc(docRef);
                     if (docSnap.exists()) {
                         const data = docSnap.data();
-                        
+
                         data.fecha_termino = new Date().toISOString();
-                        
+
                         await setDoc(doc(db, "historial_emergencias", id.toString()), data);
                         await deleteDoc(docRef);
                     }
@@ -526,20 +585,20 @@
             const urlBase = window.location.origin + window.location.pathname.replace('central.html', '');
             const linkFinal = `${urlBase}loc.html?id=${currentLinkId}`;
             const mensaje = `🚨 *Bomberos Nueva Imperial* 🚨\nPara enviar la unidad de emergencia al lugar exacto, necesitamos su ubicación.\n\nHaga clic en el siguiente enlace y presione "ENVIAR MI UBICACIÓN":\n${linkFinal}`;
-            
+
             navigator.clipboard.writeText(linkFinal).catch(err => console.error(err));
-            
+
             if (metodo === 'wa') {
                 window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, '_blank');
             } else if (metodo === 'sms') {
                 window.open(`sms:?body=${encodeURIComponent(mensaje)}`, '_self');
             }
-            
+
             onSnapshot(doc(db, "ubicaciones_externas", currentLinkId), (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     document.getElementById('direccion').value = "UBICACIÓN OBTENIDA VÍA LINK GPS";
-                    selectedCoords = [data.lat, data.lng]; 
+                    selectedCoords = [data.lat, data.lng];
                     map.setView(selectedCoords, 17);
                     if (dispatchMarker) map.removeLayer(dispatchMarker);
                     dispatchMarker = L.marker(selectedCoords, {
@@ -581,11 +640,11 @@
 
         // Unidades fuera de servicio: mismo documento que administra Central 2.
         // Si una unidad está fuera de servicio, se bloquea acá para que no se
-        // pueda despachar por error.
+        // pueda despachar por error, y también se saca de la lista de "+ Despachar otro carro".
         onSnapshot(doc(db, "operaciones", "flota"), (snap) => {
-            const estadoFlota = snap.exists() ? snap.data() : {};
-            document.querySelectorAll('#grid-unidades .unit-btn').forEach((btn) => {
-                const fueraDeServicio = !!estadoFlota[btn.innerText];
+            estadoFlotaGlobal = snap.exists() ? snap.data() : {};
+            document.querySelectorAll('#grid-unidades .unit-btn, #grid-unidades-extra .unit-btn').forEach((btn) => {
+                const fueraDeServicio = !!estadoFlotaGlobal[btn.innerText];
                 btn.disabled = fueraDeServicio;
                 btn.title = fueraDeServicio ? 'Fuera de servicio' : '';
                 btn.style.opacity = fueraDeServicio ? '0.4' : '';

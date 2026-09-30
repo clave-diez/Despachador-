@@ -94,7 +94,7 @@
         const functions = getFunctions(app, 'southamerica-west1');
 
         // Misma lista de unidades que usa Usuarios.
-        const UNIDADES = ['B-1', 'Z-1', 'BT-1', 'B-2', 'R-2', 'BX-2', 'B-3', 'BX-3', 'G-3'];
+        const UNIDADES = ['B-1', 'Z-1', 'BT-1', 'B-2', 'R-2', 'BX-2', 'B-3', 'BX-3', 'G-3', 'RX-2', 'UT-2', 'LT-1', 'K-1'];
 
         // Códigos de llegada de otras instituciones. Se guardan como texto simple
         // junto al despacho; el nombre completo es solo para mostrar en el botón.
@@ -211,19 +211,20 @@
                 const emId = docSnap.id;
                 
                 const isServicio = data.code.startsWith('6-');
-                const themeColor = isServicio ? 'var(--c-orange)' : 'var(--c-red)';
-                
+                const esAcuartelamiento = data.code === 'ACUARTELAMIENTO';
+                const themeColor = isServicio ? 'var(--c-orange)' : (esAcuartelamiento ? 'var(--c-blue)' : 'var(--c-red)');
+
                 let card = document.createElement('div');
                 card.className = 'c2-card';
                 card.style.borderTop = `4px solid ${themeColor}`;
-                
+
                 let cardHtml = `
                     <div class="c2-card-header" style="border-bottom: 2px solid ${themeColor}; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                         <div>
                             <h2 style="color: ${themeColor}; margin: 0; font-size: 1.4rem; font-weight: 900; text-transform: uppercase;">${data.code} ${data.alarma > 0 ? `(${data.alarma}ª Alarma)` : ''}</h2>
-                            <p style="margin: 5px 0 0 0; color: var(--text-muted); font-size: 1rem; font-weight: bold; text-transform: uppercase;">${data.address}</p>
+                            <p style="margin: 5px 0 0 0; color: var(--text-muted); font-size: 1rem; font-weight: bold; text-transform: uppercase;">${data.address || (esAcuartelamiento ? 'TODO EL PERSONAL A CUARTEL' : '')}</p>
                         </div>
-                        ${!isServicio ? `
+                        ${(!isServicio && !esAcuartelamiento) ? `
                             <button onclick="window.solicitar66('${emId}')" style="
                                 background: transparent; border: 1.5px solid var(--c-orange); color: var(--c-orange);
                                 padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.75rem;
@@ -231,22 +232,33 @@
                             ">Pedir 6-6</button>
                         ` : ''}
                     </div>
-                    <div style="display: flex; gap: 12px; margin-top: 15px; align-items: flex-start;">
-                        <div id="units-container-${emId}" style="display: flex; flex-direction: column; gap: 10px; flex: 1;"></div>
-                        ${!isServicio ? `
-                            <div style="display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;">
-                                <span style="color: var(--text-muted); font-size: 0.65rem; font-weight: bold; text-transform: uppercase; text-align: center;">Otras<br>instituciones</span>
-                                ${INSTITUCIONES.map(inst => {
-                                    const marcado = data.institucionesLog && data.institucionesLog[inst.clave];
-                                    return `<button class="btn-c2-time ${marcado ? 'marcado' : ''}" style="min-width: 64px; font-size: 0.7rem;"
-                                        onclick="window.marcarInstitucion('${emId}', '${inst.clave}')" title="${inst.label}">
-                                        ${inst.clave}<span style="font-size: 0.85rem; display:block;">${marcado || '--:--'}</span>
-                                    </button>`;
-                                }).join('')}
-                            </div>
-                        ` : ''}
-                    </div>
                 `;
+
+                if (esAcuartelamiento) {
+                    // No hay carros ni tiempos radiales que registrar: solo observaciones, si las hay.
+                    cardHtml += `
+                        ${data.obs ? `<p style="margin: 12px 0 0; color: var(--text-muted); font-size: 0.9rem;"><strong>Obs:</strong> ${data.obs}</p>` : ''}
+                        <p style="margin: 12px 0 0; color: var(--text-muted); font-size: 0.8rem; font-style: italic;">Acuartelamiento — se finaliza desde Central 1.</p>
+                    `;
+                } else {
+                    cardHtml += `
+                        <div style="display: flex; gap: 12px; margin-top: 15px; align-items: flex-start;">
+                            <div id="units-container-${emId}" style="display: flex; flex-direction: column; gap: 10px; flex: 1;"></div>
+                            ${!isServicio ? `
+                                <div style="display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;">
+                                    <span style="color: var(--text-muted); font-size: 0.65rem; font-weight: bold; text-transform: uppercase; text-align: center;">Otras<br>instituciones</span>
+                                    ${INSTITUCIONES.map(inst => {
+                                        const marcado = data.institucionesLog && data.institucionesLog[inst.clave];
+                                        return `<button class="btn-c2-time ${marcado ? 'marcado' : ''}" style="min-width: 64px; font-size: 0.7rem;"
+                                            onclick="window.marcarInstitucion('${emId}', '${inst.clave}')" title="${inst.label}">
+                                            ${inst.clave}<span style="font-size: 0.85rem; display:block;">${marcado || '--:--'}</span>
+                                        </button>`;
+                                    }).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
 
                 if (isServicio) {
                     cardHtml += `<button style="background: ${themeColor}; color: white; border: none; padding: 12px; margin-top: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; text-transform: uppercase; width: 100%;" onclick="window.cerrarServicio('${emId}')">FINALIZAR SERVICIO Y ARCHIVAR</button>`;
@@ -254,6 +266,8 @@
 
                 card.innerHTML = cardHtml;
                 container.appendChild(card);
+
+                if (esAcuartelamiento) return; // no hay carros que iterar
 
                 const unitsContainer = document.getElementById(`units-container-${emId}`);
                 const currentLogs = data.logs || {};

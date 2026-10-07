@@ -107,7 +107,7 @@
 
     <script type="module">
         import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
         import { getAuth, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -135,16 +135,22 @@
         // Si el cuerpo suma o retira una unidad, se actualiza aquí también.
         const UNIDADES = ['B-1', 'Z-1', 'BT-1', 'B-2', 'R-2', 'BX-2', 'B-3', 'BX-3', 'G-3', 'RX-2', 'UT-2', 'LT-1', 'K-1'];
 
+        // Reutilizada tanto por el formulario de alta como por el panel de edición de cada fila,
+        // marcando como "checked" las unidades que ya tenga ese bombero.
+        function unidadesChecklistHtml(claseCheck, seleccionadas = []) {
+            return UNIDADES.map(u => `
+                <label style="display: flex; align-items: center; gap: 6px; color: var(--text-light); font-size: 0.85rem; cursor: pointer;">
+                    <input type="checkbox" class="${claseCheck}" value="${u}" ${seleccionadas.includes(u) ? 'checked' : ''} style="width: 16px; height: 16px; cursor: pointer;">
+                    ${u}
+                </label>
+            `).join('');
+        }
+
         const chkMaquinista = document.getElementById('f-maquinista');
         const bloqueUnidades = document.getElementById('bloque-unidades');
         const checksUnidades = document.getElementById('checks-unidades');
 
-        checksUnidades.innerHTML = UNIDADES.map(u => `
-            <label style="display: flex; align-items: center; gap: 6px; color: var(--text-light); font-size: 0.85rem; cursor: pointer;">
-                <input type="checkbox" class="chk-unidad" value="${u}" style="width: 16px; height: 16px; cursor: pointer;">
-                ${u}
-            </label>
-        `).join('');
+        checksUnidades.innerHTML = unidadesChecklistHtml('chk-unidad');
 
         chkMaquinista.addEventListener('change', () => {
             bloqueUnidades.style.display = chkMaquinista.checked ? 'block' : 'none';
@@ -224,6 +230,10 @@
             }
         });
 
+        // Recuerda qué paneles de edición estaban abiertos entre un refresco de la lista y el
+        // siguiente (onSnapshot vuelve a dibujar todo cada vez que cambia cualquier cuenta).
+        const panelesEditAbiertos = {};
+
         const listaEl = document.getElementById('lista-usuarios');
         const q = query(collection(db, "bomberos"), orderBy("fechaCreacion", "desc"));
 
@@ -235,33 +245,139 @@
 
             listaEl.innerHTML = '';
             snapshot.forEach((docSnap) => {
+                const id = docSnap.id;
                 const u = docSnap.data();
+                const esMaquinista = !!u.esMaquinista;
+                const perteneceGersa = Array.isArray(u.especialidades) &&
+                    u.especialidades.some(e => (e || '').toLowerCase() === 'gersa');
+                const unidadesActuales = Array.isArray(u.unidadesQueConduce) ? u.unidadesQueConduce : [];
+                const panelAbierto = !!panelesEditAbiertos[id];
+
                 const row = document.createElement('div');
-                row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:12px; background: var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; padding:12px 16px;';
+                row.style.cssText = 'background: var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; overflow:hidden;';
+
                 const etiquetas = [];
                 if (u.compania) etiquetas.push(u.compania + ' Cía.');
                 if (Array.isArray(u.especialidades) && u.especialidades.length) etiquetas.push(u.especialidades.join(', '));
-                if (u.esMaquinista) {
-                    const unidades = Array.isArray(u.unidadesQueConduce) && u.unidadesQueConduce.length
-                        ? u.unidadesQueConduce.join(', ')
-                        : 'sin unidades marcadas';
+                if (esMaquinista) {
+                    const unidades = unidadesActuales.length ? unidadesActuales.join(', ') : 'sin unidades marcadas';
                     etiquetas.push(`MAQUINISTA (${unidades})`);
                 }
 
                 row.innerHTML = `
-                    <div>
-                        <div style="color: var(--text-light); font-weight: bold;">${u.nombreCompleto || '(sin nombre)'}</div>
-                        <div style="color: var(--text-muted); font-size: 0.8rem;">
-                            Reg. ${u.numeroRegistro || '—'}
-                            ${etiquetas.length ? '· ' + etiquetas.join(' · ') : ''}
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px;">
+                        <div>
+                            <div style="color: var(--text-light); font-weight: bold;">${u.nombreCompleto || '(sin nombre)'}</div>
+                            <div style="color: var(--text-muted); font-size: 0.8rem;">
+                                Reg. ${u.numeroRegistro || '—'}
+                                ${etiquetas.length ? '· ' + etiquetas.join(' · ') : ''}
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px; flex-shrink:0;">
+                            <button data-id="${id}" class="btn-editar-usuario"
+                                style="background: transparent; border: 1px solid var(--c-blue); color: var(--c-blue); padding: 8px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.8rem;">
+                                ${panelAbierto ? 'Cerrar' : 'Editar'}
+                            </button>
+                            <button data-id="${id}" data-nombre="${(u.nombreCompleto || '').replace(/"/g, '&quot;')}" class="btn-eliminar-usuario"
+                                style="background: transparent; border: 1px solid var(--c-red); color: var(--c-red); padding: 8px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.8rem;">
+                                Eliminar
+                            </button>
                         </div>
                     </div>
-                    <button data-id="${docSnap.id}" data-nombre="${(u.nombreCompleto || '').replace(/"/g, '&quot;')}" class="btn-eliminar-usuario"
-                        style="background: transparent; border: 1px solid var(--c-red); color: var(--c-red); padding: 8px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.8rem;">
-                        Eliminar
-                    </button>
+                    <div class="panel-editar" data-id="${id}" style="display:${panelAbierto ? 'block' : 'none'}; padding: 16px; border-top: 1px solid var(--border-color); background: var(--bg-panel);">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                            <div>
+                                <label style="color: var(--text-muted); font-weight: bold; font-size: 0.8rem; margin-bottom: 5px; display: block;">COMPAÑÍA</label>
+                                <select class="f-edit-compania"
+                                    style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-dark); color: var(--text-light); font-weight: bold; outline: none; cursor: pointer;">
+                                    <option value="" ${!u.compania ? 'selected' : ''}>— Sin asignar —</option>
+                                    <option value="Primera" ${u.compania === 'Primera' ? 'selected' : ''}>Primera Compañía</option>
+                                    <option value="Segunda" ${u.compania === 'Segunda' ? 'selected' : ''}>Segunda Compañía</option>
+                                    <option value="Tercera" ${u.compania === 'Tercera' ? 'selected' : ''}>Tercera Compañía</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; padding-top: 22px;">
+                                <input type="checkbox" class="f-edit-gersa" ${perteneceGersa ? 'checked' : ''} style="width: 20px; height: 20px; cursor: pointer;">
+                                <label style="color: var(--text-light); font-weight: bold; cursor: pointer;">Pertenece al GERSA</label>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 15px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" class="f-edit-maquinista" ${esMaquinista ? 'checked' : ''} style="width: 20px; height: 20px; cursor: pointer;">
+                                <label style="color: var(--text-light); font-weight: bold; cursor: pointer;">Es maquinista / conductor</label>
+                            </div>
+                            <div class="bloque-unidades-edit" style="display: ${esMaquinista ? 'block' : 'none'}; margin-top: 12px; background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px;">
+                                <label style="color: var(--text-muted); font-weight: bold; font-size: 0.8rem; margin-bottom: 8px; display: block;">¿QUÉ UNIDADES SABE CONDUCIR?</label>
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                                    ${unidadesChecklistHtml('chk-unidad-edit', unidadesActuales)}
+                                </div>
+                            </div>
+                        </div>
+
+                        <button data-id="${id}" class="btn-guardar-edicion" style="background: var(--c-blue); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 900; cursor: pointer; text-transform: uppercase; font-size: 0.85rem;">
+                            Guardar cambios
+                        </button>
+                        <span class="edit-msg" style="margin-left: 12px; font-weight: bold; font-size: 0.85rem;"></span>
+                    </div>
                 `;
                 listaEl.appendChild(row);
+            });
+
+            listaEl.querySelectorAll('.btn-editar-usuario').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const id = btn.dataset.id;
+                    panelesEditAbiertos[id] = !panelesEditAbiertos[id];
+                    const panel = listaEl.querySelector(`.panel-editar[data-id="${id}"]`);
+                    if (panel) panel.style.display = panelesEditAbiertos[id] ? 'block' : 'none';
+                    btn.textContent = panelesEditAbiertos[id] ? 'Cerrar' : 'Editar';
+                });
+            });
+
+            listaEl.querySelectorAll('.panel-editar .f-edit-maquinista').forEach((chk) => {
+                chk.addEventListener('change', () => {
+                    const bloque = chk.closest('.panel-editar').querySelector('.bloque-unidades-edit');
+                    bloque.style.display = chk.checked ? 'block' : 'none';
+                    if (!chk.checked) {
+                        bloque.querySelectorAll('.chk-unidad-edit').forEach(c => c.checked = false);
+                    }
+                });
+            });
+
+            listaEl.querySelectorAll('.btn-guardar-edicion').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    const panel = listaEl.querySelector(`.panel-editar[data-id="${id}"]`);
+                    const msgEl = panel.querySelector('.edit-msg');
+                    const compania = panel.querySelector('.f-edit-compania').value;
+                    const perteneceGersaEdit = panel.querySelector('.f-edit-gersa').checked;
+                    const especialidades = perteneceGersaEdit ? ['GERSA'] : [];
+                    const esMaquinistaEdit = panel.querySelector('.f-edit-maquinista').checked;
+                    const unidadesQueConduce = esMaquinistaEdit
+                        ? Array.from(panel.querySelectorAll('.chk-unidad-edit:checked')).map(c => c.value)
+                        : [];
+
+                    btn.disabled = true;
+                    msgEl.style.color = 'var(--text-muted)';
+                    msgEl.textContent = 'Guardando…';
+
+                    try {
+                        await updateDoc(doc(db, "bomberos", id), {
+                            compania,
+                            especialidades,
+                            esMaquinista: esMaquinistaEdit,
+                            unidadesQueConduce
+                        });
+                        msgEl.style.color = 'var(--c-green)';
+                        msgEl.textContent = 'Cambios guardados.';
+                    } catch (error) {
+                        console.error("Error editando perfil:", error);
+                        msgEl.style.color = 'var(--c-red)';
+                        msgEl.textContent = 'No se pudo guardar. Intenta nuevamente.';
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
             });
 
             listaEl.querySelectorAll('.btn-eliminar-usuario').forEach((btn) => {
@@ -270,6 +386,7 @@
                     const nombre = btn.dataset.nombre || 'este bombero';
                     if (!confirm(`¿Eliminar el perfil de ${nombre}? Perderá acceso a la app de inmediato.`)) return;
                     try {
+                        delete panelesEditAbiertos[id];
                         await deleteDoc(doc(db, "bomberos", id));
                     } catch (error) {
                         console.error("Error eliminando perfil:", error);
